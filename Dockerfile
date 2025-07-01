@@ -1,22 +1,30 @@
-FROM node:19-alpine3.15
-
+# 1) Etapa de build (incluye devDependencies)
+FROM node:19-alpine3.15 AS build
 WORKDIR /app
 
-# 1) Limpio cualquier yarn preinstalado y fuerzo la instalación de Yarn Classic v1
-RUN rm -f /usr/local/bin/yarn* \
- && npm install -g yarn@1.22.19
-
-# 2) Copio lockfile + package.json y genero node_modules con Yarn v1
+# Copio metadata y monto node_modules con Yarn v1 (clásico)
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --network-timeout 600000
+RUN yarn install \
+      --network-timeout 600000 \
+      --network-concurrency 1
 
-# 3) Copio el resto y compilo
+# Copio el resto del código y compilo
 COPY . .
 RUN yarn build
 
-# 4) Runtime
+
+# 2) Etapa de producción (solo runtime)
+FROM node:19-alpine3.15 AS prod
+WORKDIR /app
+
+# Copio artifacts del build
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist         ./dist
+
+# Inyecta tu versión al runtime
 ARG APP_VERSION
 ENV APP_VERSION=${APP_VERSION}
+
 EXPOSE 3000
 
-CMD ["node","dist/main.js"]
+CMD ["node", "dist/main.js"]
