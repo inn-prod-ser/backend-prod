@@ -1,46 +1,40 @@
-# 1) deps de desarrollo con Yarn v4
-FROM node:19-alpine3.15 as dev-deps
+# --- 1) Imagen base con Yarn Classic v1 activado
+FROM node:19-alpine3.15 AS base
+# Habilitamos Corepack y preparamos Yarn@1.22.19 (Classic)
+RUN corepack enable && corepack prepare yarn@1.22.19 --activate
 WORKDIR /app
+COPY package.json yarn.lock ./
 
-# activar Corepack y preparar Yarn Berry (v4.x)
-RUN corepack enable \
- && corepack prepare yarn@stable --activate
+# --- 2) Instalo deps de desarrollo (crea node_modules con Yarn v1)
+FROM base AS dev-deps
+RUN yarn install \
+      --frozen-lockfile \
+      --network-timeout 600000
 
-# copiar config de Yarn Berry + lockfile
-COPY package.json yarn.lock .yarnrc.yml ./
-COPY .yarn ./.yarn
-
-# instalar deps con formato Berry
-RUN yarn install --immutable --network-concurrency 1 --network-timeout 600000
-
-# 2) build
-FROM node:19-alpine3.15 as builder
+# --- 3) Compilo el proyecto
+FROM base AS builder
 WORKDIR /app
 COPY --from=dev-deps /app/node_modules ./node_modules
 COPY . .
 RUN yarn build
 
-# 3) deps de prod
-FROM node:19-alpine3.15 as prod-deps
-WORKDIR /app
+# --- 4) Instalo sólo deps de producción
+FROM base AS prod-deps
+RUN yarn install \
+      --production \
+      --frozen-lockfile \
+      --network-timeout 600000
 
-# volver a preparar el mismo Yarn v4
-RUN corepack enable \
- && corepack prepare yarn@stable --activate
-
-COPY package.json yarn.lock .yarnrc.yml ./
-COPY .yarn ./.yarn
-
-RUN yarn install --production --immutable --network-concurrency 1 --network-timeout 600000
-
-# 4) imagen final
-FROM node:19-alpine3.15 as prod
+# --- 5) Imagen final
+FROM node:19-alpine3.15 AS prod
+# Volvemos a activar Yarn v1 para cualquier script que lo necesite
+RUN corepack enable && corepack prepare yarn@1.22.19 --activate
 WORKDIR /app
 ARG APP_VERSION
 ENV APP_VERSION=${APP_VERSION}
-EXPOSE 3000
 
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=builder   /app/dist         ./dist
 
-CMD ["node","dist/main.js"]
+EXPOSE 3000
+CMD ["node", "dist/main.js"]
