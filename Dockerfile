@@ -20,6 +20,8 @@ WORKDIR /app
 # Copio artifacts del build
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist         ./dist
+COPY --from=build /app/public ./public
+
 
 # Inyecta tu versión al runtime
 ARG APP_VERSION
