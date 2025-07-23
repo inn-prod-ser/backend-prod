@@ -4,5 +4,4 @@ docker-compose.yml
 .env
 coverage
 test
-src
 .yarn
