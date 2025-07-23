@@ -18,4 +18,3 @@ docker-compose up --force-recreate --build -d
 # Production notes:
 
 
-Docker file
