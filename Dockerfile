@@ -8,6 +8,7 @@ RUN corepack enable && corepack prepare yarn@4.8.0 --activate
 RUN yarn config set nodeLinker node-modules
 RUN yarn install --immutable --mode=skip-build
 RUN yarn build
+RUN ls -lah /app/dist
 
 FROM node:20.12.2-alpine
 
